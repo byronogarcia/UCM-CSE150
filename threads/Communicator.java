@@ -22,7 +22,7 @@ public class Communicator {
     	speakerSending = new Condition(lock);
     	listenerWaiting = false;
     	speakerWaiting = false;
-    	recieved = false;
+    	received = false;
     	
     }
 
@@ -84,6 +84,31 @@ public class Communicator {
     	lock.release();
     	return holder;
     	
+    }
+    
+    public static void selfTest() {
+    	final Communicator com = new Communicator();
+    	
+    	KThread thread2 = new KThread(new Runnable() {
+    		public void run() {
+    			System.out.println("Thread 2 begin listening");
+    			com.listen();
+    			System.out.println("Thread 2 finished listening");
+    		}
+    	});
+    	
+    	KThread thread1 = new KThread(new Runnable() {
+    		public void run() {
+    			System.out.println("Thread 1 begin speaking");
+    			com.speak(2);
+    			System.out.println("Thread 1 finished speaking");
+    		}
+    	});
+    	
+    	thread1.fork();
+    	thread2.fork();
+    	thread1.join();
+    	thread2.join();
     }
 
     
