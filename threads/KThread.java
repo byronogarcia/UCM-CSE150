@@ -2,6 +2,7 @@ package nachos.threads;
 
 import nachos.machine.*;
 
+import java.util.*;
 /**
  * A KThread is a thread that can be used to execute Nachos kernel code. Nachos
  * allows multiple threads to run concurrently.
@@ -181,6 +182,7 @@ public class KThread {
      * destroyed automatically by the next thread to run, when it is safe to
      * delete this thread.
      */
+    static PriorityQueue<KThread> waiting_queue = new PriorityQueue<KThread>(); // makes new queue call the waiting_queue
     public static void finish() {
 	Lib.debug(dbgThread, "Finishing thread: " + currentThread.toString());
 	
@@ -194,6 +196,12 @@ public class KThread {
 
 	currentThread.status = statusFinished;
 	
+	//when threads calls join method, this section of code will move any threads that is move onto the waiting_queue back to ready_queue.
+	KThread temp; // temp stores info on next thread on the waiting_queue
+	while((temp = waiting_queue.poll())!= null) // "continue" checking if waiting_queue is empty or not
+	{
+		temp.ready(); // if it isn't empty, put all the threads in that queue onto the ready_queue
+	}
 	sleep();
     }
 
@@ -274,9 +282,15 @@ public class KThread {
      */
     public void join() {
 	Lib.debug(dbgThread, "Joining to thread: " + toString());
-
 	Lib.assertTrue(this != currentThread);
 
+	Machine.interrupt().disable(); // disable interrupts
+	while(this.status != statusFinished) //check if running thread is finish or not
+	{
+		waiting_queue.add(currentThread); // if not finish, put current thread onto waiting queue
+		currentThread.sleep(); // put thread to sleep
+	}
+	Machine.interrupt().enable(); // enable interrupts
     }
 
     /**
@@ -427,6 +441,7 @@ public class KThread {
      * ready (on the ready queue but not running), running, or blocked (not
      * on the ready queue and not running).
      */
+    
     private int status = statusNew;
     private String name = "(unnamed thread)";
     private Runnable target;
