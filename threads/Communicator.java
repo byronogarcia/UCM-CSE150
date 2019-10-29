@@ -15,13 +15,20 @@ public class Communicator {
      */
     public Communicator() {
     	
-    	lock = new Lock();
-    	listenerWaitingQueue = new Condition(lock);
-    	speakerWaitingQueue = new Condition(lock);
-    	listenerRecieving = new Condition (lock);
-    	speakerSending = new Condition(lock);
-    	listenerWaiting = false;
-    	speakerWaiting = false;
+        // lock for communication
+    	lockCommunicator = new Lock();
+
+    	// Speak condition
+    	speaker = new Condition2(lockCommunicator);
+        send = new Condition2(lockCommunicator);
+        speakerWait = false;
+        
+        // Listen condition
+        listener = new Condition2(lockCommunicator);
+    	receive = new Condition2(lockCommunicator);
+        listenerWait = false;
+
+        // Check if successful
     	received = false;
     	
     }
@@ -37,27 +44,33 @@ public class Communicator {
      * @param	word	the integer to transfer.
      */
     public void speak(int word) {
-    	lock.acquire();
+        // Lock so that the task completes without interruption
+    	lockCommunicator.acquire();
     	
-    	while(speakerWaiting) {
-    		speakerWaitingQueue.sleep();
+        // Run while it waits for a speaker, puts it to sleep with the lock
+    	while (speakerWait == true) {
+    		speaker.sleep();
     	}
     	
-    	speakerWaiting = true;
-    	holder = word;
+        // Shows that a speaker is waiting and asleep, makes the word returningWord
+    	speakerWait = true;
+    	returningWord = word;
     	
-    	while(!listenerWaiting || !received ) {
-    		listenerRecieving.wake();
-    		speakerSending.sleep();
+        // While there is no listener and no word has been received, run the loop
+    	while(listenerWait == false || received == false) {
+    		receive.wake(); // Wake up all potential listeners
+    		send.sleep();
     	}
     	
-    	listenerWaiting = false;
-    	speakerWaiting = false;
-    	received = false;
-    	
-    	speakerWaitingQueue.wake();
-    	listenerWaitingQueue.wake();
-    	lock.release();
+        // Set all to false to reset
+    	listenerWait = speakerWait = received = false;
+
+    	// Wake up speaker, wake up listener and pair both
+    	speaker.wake();
+    	listener.wake();
+        
+        // Release lock
+    	lockCommunicator.release();
     }
 
     /**
@@ -65,62 +78,47 @@ public class Communicator {
      * the <i>word</i> that thread passed to <tt>speak()</tt>.
      *
      * @return	the integer transferred.
-     */    
+     */
+
     public int listen() {
-    	lock.acquire();
+    	lockCommunicator.acquire();
     	
-    	while(listenerWaiting) {
-    		listenerWaitingQueue.sleep();
+        // Runs loop while waiting for a listener, puts potential listener to sleep with lock
+    	while (listenerWait == true) {
+    		listener.sleep();
     	}
     	
-    	listenerWaiting = true;
+        // Theres a waiting listener
+    	listenerWait = true;
     	
-    	while(!speakerWaiting) {
-    		listenerRecieving.sleep();
+        // Put to sleep a listener while speaker is waiting
+    	while (speakerWait == false) {
+    		receive.sleep();
     	}
     	
-    	speakerSending.wake();
+        // Exits both loops and the word has been 'received'
     	received = true;
-    	lock.release();
-    	return holder;
-    	
-    }
-    
-    public static void selfTest() {
-    	final Communicator com = new Communicator();
-    	
-    	KThread thread2 = new KThread(new Runnable() {
-    		public void run() {
-    			System.out.println("Thread 2 begin listening");
-    			com.listen();
-    			System.out.println("Thread 2 finished listening");
-    		}
-    	});
-    	
-    	KThread thread1 = new KThread(new Runnable() {
-    		public void run() {
-    			System.out.println("Thread 1 begin speaking");
-    			com.speak(2);
-    			System.out.println("Thread 1 finished speaking");
-    		}
-    	});
-    	
-    	thread1.fork();
-    	thread2.fork();
-    	thread1.join();
-    	thread2.join();
+
+        // Wake up potential sender and pair, release lock
+        send.wake();
+    	lockCommunicator.release();
+
+        // Return spoken word
+    	return returningWord;
     }
 
+
     
-    private Condition speakerWaitingQueue;
-    private Condition speakerSending;
-    private Condition listenerWaitingQueue;
-    private Condition listenerRecieving;
+    private Condition2 speaker;
+    private Condition2 send; // Speaker sends the word
+
+    private Condition2 listener;
+    private Condition2 receive; // Listener receives the word
     
-    private boolean listenerWaiting;
-    private boolean speakerWaiting;
-    private boolean received;
+    private boolean listenerWait; // Denotes a waiting listener
+    private boolean speakerWait; // Denotes a waiting speaker
+    private boolean received; // Denotes that a message has been received
     
-    private int holder;
-    private Lock lock;
+    private int returningWord; // Holds the word to be returned
+    private Lock lockCommunicator; //THE MUTEX
 }
