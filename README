@@ -1,4 +1,16 @@
-                      Nachos for Java README
+			CSE 150: Operating Systems
+The following repository contains the implentations of various operating
+system processes. These are implemented using the Nachos framework, with
+the documentations copied below.
+
+Nachos Implementations:
+Alarm.java
+Communicator.java
+Condition2.java
+KThread.java
+PriorityScheduler.java
+
+			Nachos for Java README
 
 Welcome to Nachos for Java. We believe that working in Java rather than
 C++ will greatly simplify the development process by preventing bugs
