@@ -136,20 +136,48 @@ public class UserProcess {
      *          the array.
      * @return  the number of bytes successfully transferred.
      */
-    public int readVirtualMemory(int vaddr, byte[] data, int offset,
-        int length) {
-        Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
+    public int readVirtualMemory(int vaddr, byte[] data, int offset, int length) {
+//         Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
-        byte[] memory = Machine.processor().getMemory();
+//         byte[] memory = Machine.processor().getMemory();
 
-    // for now, just assume that virtual addresses equal physical addresses
-        if (vaddr < 0 || vaddr >= memory.length)
-            return 0;
+//     // for now, just assume that virtual addresses equal physical addresses
+//         if (vaddr < 0 || vaddr >= memory.length)
+//             return 0;
 
-        int amount = Math.min(length, memory.length-vaddr);
-        System.arraycopy(memory, vaddr, data, offset, amount);
+//         int amount = Math.min(length, memory.length-vaddr);
+//         System.arraycopy(memory, vaddr, data, offset, amount);
 
-        return amount;
+//         return amount;
+	    
+	    	Lib.assertTrue(offset >= 0 && length >= 0 && offset + length <= data.length);
+
+		byte[] memory = Machine.processor().getMemory();
+
+		int firstVPN = Processor.pageFromAddress(vaddr);
+		int firstOffset = Processor.offsetFromAddress(vaddr);
+		int lastVPN = Processor.pageFromAddress(vaddr + length);
+
+		TranslationEntry entry = getTranslationEntry(firstVPN, false);
+
+		if (entry == null)
+			return 0;
+
+		int amount = Math.min(length, pageSize - firstOffset);
+		System.arraycopy(memory, Processor.makeAddress(entry.ppn, firstOffset), data, offset, amount);
+		offset += amount;
+
+		for (int i = firstVPN + 1; i <= lastVPN; i++) {
+			entry = getTranslationEntry(i, false);
+			if (entry == null)
+				return amount;
+			int len = Math.min(length - amount, pageSize);
+			System.arraycopy(memory, Processor.makeAddress(entry.ppn, 0), data, offset, len);
+			offset += len;
+			amount += len;
+		}
+
+		return amount;
     }
 
     /**
@@ -181,18 +209,48 @@ public class UserProcess {
      */
     public int writeVirtualMemory(int vaddr, byte[] data, int offset,
         int length) {
-        Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
+//         Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
-        byte[] memory = Machine.processor().getMemory();
+//         byte[] memory = Machine.processor().getMemory();
 
-    // for now, just assume that virtual addresses equal physical addresses
-        if (vaddr < 0 || vaddr >= memory.length)
-            return 0;
+//     // for now, just assume that virtual addresses equal physical addresses
+//         if (vaddr < 0 || vaddr >= memory.length)
+//             return 0;
 
-        int amount = Math.min(length, memory.length-vaddr);
-        System.arraycopy(data, offset, memory, vaddr, amount);
+//         int amount = Math.min(length, memory.length-vaddr);
+//         System.arraycopy(data, offset, memory, vaddr, amount);
 
-        return amount;
+//         return amount;
+	    
+	    Lib.assertTrue(offset >= 0 && length >= 0
+				&& offset + length <= data.length);
+
+		byte[] memory = Machine.processor().getMemory();
+
+		int firstVPN = Processor.pageFromAddress(vaddr);
+		int firstOffset = Processor.offsetFromAddress(vaddr);
+		int lastVPN = Processor.pageFromAddress(vaddr + length);
+
+		TranslationEntry entry = getTranslationEntry(firstVPN, true);
+
+		if (entry == null)
+			return 0;
+
+		int amount = Math.min(length, pageSize - firstOffset);
+		System.arraycopy(data, offset, memory, Processor.makeAddress(entry.ppn, firstOffset), amount);
+		offset += amount;
+
+		for (int i = firstVPN + 1; i <= lastVPN; i++) {
+			entry = getTranslationEntry(i, true);
+			if (entry == null)
+				return amount;
+			int len = Math.min(length - amount, pageSize);
+			System.arraycopy(data, offset, memory, Processor.makeAddress(entry.ppn, 0), len);
+			offset += len;
+			amount += len;
+		}
+
+		return amount;
     }
 
     /**
